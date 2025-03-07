@@ -1,0 +1,12 @@
+# OpenAI API 客户端
+openai>=1.0.0
+
+# 日志管理
+loguru>=0.7.0
+
+# 异步支持
+aiohttp>=3.9.0
+asyncio>=3.4.3
+
+# 类型提示
+typing-extensions>=4.7.0
