@@ -26,6 +26,7 @@ class TaskManager:
         self.tasks = {}
         self._task_counter = 0
         self.loop = asyncio.get_event_loop()
+        LOGGER.info(f"任务管理器初始化完成，最大并行数: {max_workers}")
         
     async def _execute_task(self, task_id: int, task: Task):
         """执行单个任务"""

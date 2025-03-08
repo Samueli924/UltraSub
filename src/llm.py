@@ -4,6 +4,7 @@ from src.logging import LOGGER
 from src.decorators import retry_on_failure
 from openai.types.chat import ChatCompletionMessage
 from src.tasks import TaskManager
+import os
 
 def generate_system_prompt(domains: Optional[List[str]] = None) -> str:
     """
@@ -61,20 +62,31 @@ class TranslationModel:
             domains: 专业领域列表
         """
         self.client = AsyncOpenAI(api_key=_api_key, base_url=_endpoint)
-        self.task_manager = TaskManager(max_workers=15)
+        
+        # 从环境变量读取配置
+        max_workers = int(os.getenv("MAX_WORKERS", "15"))  # 默认15
+        self.temperature = float(os.getenv("TEMPERATURE", "1.3"))  # 默认1.3
+        
+        self.task_manager = TaskManager(max_workers=max_workers)
         self.system_prompt = generate_system_prompt(domains)
+        self.model = os.getenv("MODEL_NAME", "deepseek-chat")
+        
+        # 记录配置信息
         LOGGER.info(f"OpenAI客户端初始化成功，API端点: {_endpoint}")
+        LOGGER.info(f"使用模型: {self.model}")
+        LOGGER.info(f"最大并行数: {max_workers}")
+        LOGGER.info(f"Temperature: {self.temperature}")
         if domains:
             LOGGER.info(f"设置专业领域: {', '.join(domains)}")
     
     # @retry_on_failure(max_retries=3, delay=1.0, backoff_factor=2.0)
-    async def chat_completion(self, messages: list, model: str = "deepseek-chat") -> tuple[Optional[str], Optional[str]]:
+    async def chat_completion(self, messages: list, model: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
         """
         发送聊天请求到LLM
         
         Args:
             messages: 消息列表
-            model: 模型名称
+            model: 模型名称（可选，如果不指定则使用环境变量中的设置）
             
         Returns:
             模型响应的文本，如果失败则返回None
@@ -87,9 +99,9 @@ class TranslationModel:
             ] + messages
             
             response = await self.client.chat.completions.create(
-                model=model,
+                model=model or self.model,
                 messages=full_messages,
-                temperature=1.3
+                temperature=self.temperature  # 使用从环境变量读取的temperature
             )
             
             message = response.choices[0].message

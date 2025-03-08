@@ -10,8 +10,23 @@ import os
 import asyncio
 import time
 import argparse
+from dotenv import load_dotenv
 
 async def main():
+    # 加载环境变量
+    load_dotenv()
+    
+    # 检查必要的环境变量
+    required_env_vars = ['API_KEY', 'ENDPOINT', 'MODEL_NAME']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+    if missing_vars:
+        LOGGER.error(f"缺少必要的环境变量: {', '.join(missing_vars)}")
+        LOGGER.info("请在.env文件中设置以下环境变量：")
+        LOGGER.info("API_KEY=你的API密钥")
+        LOGGER.info("ENDPOINT=https://api.deepseek.com")
+        LOGGER.info("MODEL_NAME=deepseek-chat")
+        return
+    
     # 设置命令行参数
     parser = argparse.ArgumentParser(description='字幕翻译工具')
     parser.add_argument('srt_file', help='要翻译的srt英文单轨文件路径')
@@ -44,7 +59,7 @@ async def main():
         
         # 使用asyncio.gather并发执行所有请求
         tasks = [
-            llm.chat_completion(messages=[msg], model="deepseek-chat")
+            llm.chat_completion(messages=[msg])  # 不再直接指定model参数
             for msg in messages
         ]
         results = await asyncio.gather(*tasks)
