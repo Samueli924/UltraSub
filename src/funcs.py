@@ -145,7 +145,7 @@ def generate_translated_srt(subtitles: List[Dict], translations: List[tuple], ou
     
     Args:
         subtitles: 原字幕列表
-        translations: 翻译结果列表
+        translations: 翻译结果列表 (可能包含2元组或3元组)
         output_dir: 输出目录
         original_filename: 原始文件名
         
@@ -163,7 +163,16 @@ def generate_translated_srt(subtitles: List[Dict], translations: List[tuple], ou
     
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
-            for subtitle, (translation, _) in zip(subtitles, translations):
+            for subtitle, translation_data in zip(subtitles, translations):
+                # 适应旧版返回值 (text, reasoning) 和新版返回值 (text, reasoning, usage)
+                if isinstance(translation_data, tuple):
+                    if len(translation_data) >= 1:
+                        translation = translation_data[0]
+                    else:
+                        translation = None
+                else:
+                    translation = translation_data
+                
                 if not translation:
                     LOGGER.warning(f"字幕 #{subtitle['number']} 没有翻译结果，将保持原文")
                     translation = subtitle['text']

@@ -84,14 +84,22 @@ async def process_translation(task_id: str, file_path: str, domains: Optional[li
         
         # 使用asyncio.gather执行所有请求
         results = []
+        usages = []
         for i, task_coro in enumerate(translation_tasks):
-            result, _, usage = await task_coro
-            results.append(result)
-            # 更新进度和tokens信息
+            result_tuple = await task_coro
+            # 提取翻译文本（第一个元素）
+            translation_text = result_tuple[0] if result_tuple else None
+            results.append(translation_text)
+            
+            # 提取token使用情况（第三个元素，如果存在）
+            if result_tuple and len(result_tuple) > 2:
+                usage = result_tuple[2]
+                usages.append(usage)
+                
+            # 更新进度
             tasks[task_id].update({
                 "progress": i + 1,
-                "percentage": round((i + 1) * 100 / len(subtitles), 2),
-                "current_tokens": llm.get_total_usage()
+                "percentage": round((i + 1) * 100 / len(subtitles), 2)
             })
         
         # 生成译文文件

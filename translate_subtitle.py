@@ -83,7 +83,10 @@ async def main():
             llm.chat_completion(messages=[msg])
             for msg in messages
         ]
-        results = await asyncio.gather(*tasks)
+        task_results = await asyncio.gather(*tasks)
+        
+        # 提取翻译结果（忽略token和推理内容）
+        results = [result[0] for result in task_results]
         
         # 等待所有结果
         end_time = time.time()
