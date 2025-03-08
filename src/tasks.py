@@ -1,3 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+异步任务管理模块
+
+该模块提供异步任务的管理功能，包括：
+- 任务队列管理
+- 并发控制
+- 任务状态跟踪
+- 结果获取和错误处理
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 import asyncio
 from typing import Optional, Any, Callable
 from dataclasses import dataclass

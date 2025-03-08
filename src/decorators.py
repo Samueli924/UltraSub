@@ -1,3 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+装饰器模块
+
+该模块提供各种装饰器，用于：
+- 错误重试机制
+- 性能监控
+- 参数验证
+- 异常处理
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 import time
 from functools import wraps
 from typing import Callable, Optional, Any

@@ -1,3 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+工具函数模块
+
+该模块包含各种辅助函数，用于：
+- SRT文件的读取和解析
+- 翻译提示的格式化
+- 上下文管理
+- 结果输出和文件生成
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 import os
 from typing import List, Dict
 from src.logging import LOGGER

@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+字幕翻译工具 - 命令行接口
+
+该模块提供命令行接口，支持：
+- SRT文件翻译
+- 专业领域指定
+- 进度显示
+- 结果输出
+
+使用方法：
+    python translate_subtitle.py <srt_file> [--domains domain1 domain2 ...]
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 from src.llm import TranslationModel
 from src.logging import LOGGER
 from src.funcs import (

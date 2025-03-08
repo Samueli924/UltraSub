@@ -1,3 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+日志管理模块
+
+该模块配置全局日志系统，提供：
+- 控制台和文件双重输出
+- 日志分级和格式化
+- 日志文件轮转
+- 异步日志写入
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 import sys
 from loguru import logger
 import os

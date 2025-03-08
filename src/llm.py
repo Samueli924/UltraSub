@@ -1,3 +1,21 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+LLM翻译模型模块
+
+该模块负责与DeepSeek API的交互，提供：
+- 翻译模型的初始化和配置
+- 系统提示的生成
+- 异步翻译请求的处理
+- 参数的环境变量管理
+
+Author: Samueli924
+Date: 2025-03
+License: MIT
+Version: 1.0.0
+"""
+
 from openai import AsyncOpenAI
 from typing import Optional, List
 from src.logging import LOGGER
