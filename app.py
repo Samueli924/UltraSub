@@ -70,7 +70,7 @@ async def process_translation(task_id: str, file_path: str, domains: Optional[li
         subtitles = read_srt_file(file_path)
         tasks[task_id]["total"] = len(subtitles)
         
-        # 准备翻译请求，使用format_translation_prompt_with_context来保持上下文
+        # 准备翻译请求
         messages = [
             format_translation_prompt_with_context(subtitles, i)
             for i in range(len(subtitles))
@@ -85,22 +85,27 @@ async def process_translation(task_id: str, file_path: str, domains: Optional[li
         # 使用asyncio.gather执行所有请求
         results = []
         for i, task_coro in enumerate(translation_tasks):
-            result = await task_coro
+            result, _, usage = await task_coro
             results.append(result)
-            # 更新进度
-            tasks[task_id]["progress"] = i + 1
-            tasks[task_id]["percentage"] = round((i + 1) * 100 / len(subtitles), 2)
+            # 更新进度和tokens信息
+            tasks[task_id].update({
+                "progress": i + 1,
+                "percentage": round((i + 1) * 100 / len(subtitles), 2),
+                "current_tokens": llm.get_total_usage()
+            })
         
         # 生成译文文件
         output_dir = "output"
         translated_file = generate_translated_srt(subtitles, results, output_dir, file_path)
         
         # 更新任务状态
+        total_usage = llm.get_total_usage()
         tasks[task_id].update({
             "status": "completed",
             "completed_at": datetime.now().isoformat(),
             "output_file": translated_file,
-            "percentage": 100
+            "percentage": 100,
+            "tokens_usage": total_usage
         })
         
         # 清理上传的文件

@@ -80,14 +80,23 @@ async def main():
         
         # 使用asyncio.gather并发执行所有请求
         tasks = [
-            llm.chat_completion(messages=[msg])  # 不再直接指定model参数
+            llm.chat_completion(messages=[msg])
             for msg in messages
         ]
         results = await asyncio.gather(*tasks)
         
         # 等待所有结果
         end_time = time.time()
+        
+        # 获取总的tokens使用情况
+        total_usage = llm.get_total_usage()
+        
+        # 显示性能统计
         LOGGER.info(f"总共处理 {len(messages)} 个请求，耗时: {end_time - start_time:.2f} 秒")
+        LOGGER.info(f"Tokens统计:")
+        LOGGER.info(f"  - 输入tokens: {total_usage['total_prompt_tokens']}")
+        LOGGER.info(f"  - 输出tokens: {total_usage['total_completion_tokens']}")
+        LOGGER.info(f"  - 总计tokens: {total_usage['total_tokens']}")
         
         # 显示翻译结果
         # display_translation_results(subtitles, results)

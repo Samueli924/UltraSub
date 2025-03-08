@@ -17,7 +17,7 @@ Version: 1.0.0
 """
 
 from openai import AsyncOpenAI
-from typing import Optional, List
+from typing import Optional, List, Dict
 from src.logging import LOGGER
 from src.decorators import retry_on_failure
 from openai.types.chat import ChatCompletionMessage
@@ -81,13 +81,26 @@ class TranslationModel:
         """
         self.client = AsyncOpenAI(api_key=_api_key, base_url=_endpoint)
         
-        # 从环境变量读取配置
-        max_workers = int(os.getenv("MAX_WORKERS", "15"))  # 默认15
-        self.temperature = float(os.getenv("TEMPERATURE", "1.3"))  # 默认1.3
+        # 从环境变量读取配置，添加错误处理
+        try:
+            max_workers = int(os.getenv("MAX_WORKERS", "15").strip())
+        except (ValueError, TypeError):
+            LOGGER.warning("MAX_WORKERS 环境变量格式无效，使用默认值: 15")
+            max_workers = 15
+            
+        try:
+            self.temperature = float(os.getenv("TEMPERATURE", "1.3").strip())
+        except (ValueError, TypeError):
+            LOGGER.warning("TEMPERATURE 环境变量格式无效，使用默认值: 1.3")
+            self.temperature = 1.3
         
         self.task_manager = TaskManager(max_workers=max_workers)
         self.system_prompt = generate_system_prompt(domains)
         self.model = os.getenv("MODEL_NAME", "deepseek-chat")
+        
+        # 添加tokens统计
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
         
         # 记录配置信息
         LOGGER.info(f"OpenAI客户端初始化成功，API端点: {_endpoint}")
@@ -98,7 +111,7 @@ class TranslationModel:
             LOGGER.info(f"设置专业领域: {', '.join(domains)}")
     
     # @retry_on_failure(max_retries=3, delay=1.0, backoff_factor=2.0)
-    async def chat_completion(self, messages: list, model: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
+    async def chat_completion(self, messages: list, model: Optional[str] = None) -> tuple[Optional[str], Optional[str], Optional[Dict]]:
         """
         发送聊天请求到LLM
         
@@ -107,10 +120,9 @@ class TranslationModel:
             model: 模型名称（可选，如果不指定则使用环境变量中的设置）
             
         Returns:
-            模型响应的文本，如果失败则返回None
+            tuple: (翻译文本, 推理内容, tokens使用情况)
         """
         async def _do_completion():
-            
             # 添加系统提示
             full_messages = [
                 {"role": "system", "content": self.system_prompt}
@@ -119,7 +131,7 @@ class TranslationModel:
             response = await self.client.chat.completions.create(
                 model=model or self.model,
                 messages=full_messages,
-                temperature=self.temperature  # 使用从环境变量读取的temperature
+                temperature=self.temperature
             )
             
             message = response.choices[0].message
@@ -128,7 +140,15 @@ class TranslationModel:
                 reasoning_content = message.reasoning_content
                 
             result = message.content
-            return result, reasoning_content
+            
+            # 获取tokens使用情况
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+            
+            return result, reasoning_content, usage
             
         # 提交任务到队列
         task_id = await self.task_manager.submit(_do_completion)
@@ -138,6 +158,23 @@ class TranslationModel:
         if task and task.completed:
             if task.error:
                 raise task.error
-            return task.result
-        return None, None
+            result, reasoning, usage = task.result
+            # 累加tokens
+            self.total_prompt_tokens += usage["prompt_tokens"]
+            self.total_completion_tokens += usage["completion_tokens"]
+            return result, reasoning, usage
+        return None, None, None
+    
+    def get_total_usage(self) -> Dict:
+        """
+        获取总的tokens使用情况
+        
+        Returns:
+            包含tokens统计的字典
+        """
+        return {
+            "total_prompt_tokens": self.total_prompt_tokens,
+            "total_completion_tokens": self.total_completion_tokens,
+            "total_tokens": self.total_prompt_tokens + self.total_completion_tokens
+        }
 
