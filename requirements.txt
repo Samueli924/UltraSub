@@ -10,3 +10,5 @@ asyncio>=3.4.3
 
 # 类型提示
 typing-extensions>=4.7.0
+
+dotenv

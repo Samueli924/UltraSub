@@ -23,9 +23,10 @@ from src.llm import TranslationModel
 from src.logging import LOGGER
 from src.funcs import (
     read_srt_file, 
-    format_translation_prompt_with_context, 
     display_translation_results,
-    generate_translated_srt
+    generate_translated_srt,
+    format_translation_prompt_with_context,
+    parse_batch_translation_result
 )
 import os
 import asyncio
@@ -56,62 +57,84 @@ async def main():
         nargs='+', 
         help='专业领域列表，例如：--domains 科技 医疗 金融'
     )
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=3,
+        help='批量翻译的字幕行数，默认为3'
+    )
     args = parser.parse_args()
     
-    try:
-        # 读取SRT文件
-        subtitles = read_srt_file(args.srt_file)
-        
-        # 初始化翻译模型
-        llm = TranslationModel(
-            os.getenv("API_KEY"), 
-            os.getenv("ENDPOINT"),
-            domains=args.domains
+    # try:
+    # 读取SRT文件
+    subtitles = read_srt_file(args.srt_file)
+    
+    # 初始化翻译模型
+    llm = TranslationModel(
+        os.getenv("API_KEY"), 
+        os.getenv("ENDPOINT"),
+        domains=args.domains
+    )
+    
+    # 准备批量翻译请求
+    batch_size = args.batch_size
+    total_subtitles = len(subtitles)
+    batch_count = (total_subtitles + batch_size - 1) // batch_size  # 向上取整，确保处理所有字幕
+    
+    LOGGER.info(f"总共 {total_subtitles} 条字幕，分为 {batch_count} 个批次进行翻译，每批次 {batch_size} 条")
+    
+    # 创建批量翻译请求
+    batch_messages = []
+    for i in range(0, total_subtitles, batch_size):
+        batch_message = format_translation_prompt_with_context(
+            subtitles, 
+            start_index=i, 
+            batch_size=batch_size
         )
-        
-        # 准备翻译请求
-        messages = [
-            format_translation_prompt_with_context(subtitles, i)
-            for i in range(len(subtitles))
-        ]
-        
-        # 并行发送所有请求
-        start_time = time.time()
-        
-        # 使用asyncio.gather并发执行所有请求
-        tasks = [
-            llm.chat_completion(messages=[msg])
-            for msg in messages
-        ]
-        task_results = await asyncio.gather(*tasks)
-        
-        # 提取翻译结果（忽略token和推理内容）
-        results = [result[0] for result in task_results]
-        
-        # 等待所有结果
-        end_time = time.time()
-        
-        # 获取总的tokens使用情况
-        total_usage = llm.get_total_usage()
-        
-        # 显示性能统计
-        LOGGER.info(f"总共处理 {len(messages)} 个请求，耗时: {end_time - start_time:.2f} 秒")
-        LOGGER.info(f"Tokens统计:")
-        LOGGER.info(f"  - 输入tokens: {total_usage['total_prompt_tokens']}")
-        LOGGER.info(f"  - 输出tokens: {total_usage['total_completion_tokens']}")
-        LOGGER.info(f"  - 总计tokens: {total_usage['total_tokens']}")
-        
-        # 显示翻译结果
-        # display_translation_results(subtitles, results)
-        
-        # 生成译文SRT文件
-        output_dir = "output"
-        translated_file = generate_translated_srt(subtitles, results, output_dir, args.srt_file)
-        LOGGER.info(f"翻译完成！译文文件已保存至: {translated_file}")
+        batch_messages.append(batch_message)
+    
+    # 并行发送所有批量请求
+    start_time = time.time()
+    
+    tasks = [
+        llm.chat_completion(messages=[msg])
+        for msg in batch_messages
+    ]
+    batch_results = await asyncio.gather(*tasks)
+    
+    # 解析批量翻译结果
+    all_results = []
+    for i, (result_text, reasoning, _) in enumerate(batch_results):
+        start_index = i * batch_size
+        parsed_results = parse_batch_translation_result(
+            result_text, 
+            subtitles, 
+            start_index, 
+            batch_size
+        )
+        all_results.extend(parsed_results)
+    
+    # 等待所有结果
+    end_time = time.time()
+    
+    # 获取总的tokens使用情况
+    total_usage = llm.get_total_usage()
+    
+    # 显示性能统计
+    LOGGER.info(f"总共处理 {len(batch_messages)} 个批量请求，耗时: {end_time - start_time:.2f} 秒")
+    LOGGER.info(f"Tokens统计:")
+    LOGGER.info(f"  - 输入tokens: {total_usage['total_prompt_tokens']}")
+    LOGGER.info(f"  - 输出tokens: {total_usage['total_completion_tokens']}")
+    LOGGER.info(f"  - 总计tokens: {total_usage['total_tokens']}")
+    
+    # 生成译文SRT文件
+    output_dir = "output"
+    translated_file = generate_translated_srt(subtitles, all_results, output_dir, args.srt_file)
+    LOGGER.info(f"翻译完成！译文文件已保存至: {translated_file}")
             
-    except Exception as e:
-        LOGGER.error(f"程序执行出错: {str(e)}")
-        raise
+    # except Exception as e:
+    #     LOGGER.error(f"程序执行出错: {str(e)}")
+    #     raise
 
 if __name__ == "__main__":
     asyncio.run(main())

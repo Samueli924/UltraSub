@@ -50,21 +50,23 @@ class TaskManager:
         """执行单个任务"""
         async with self.semaphore:
             LOGGER.info(f"开始执行任务 {task_id}")
-            try:
-                if asyncio.iscoroutinefunction(task.func):
-                    result = await task.func(*task.args, **task.kwargs)
-                else:
-                    # 如果不是协程函数，在线程池中执行
-                    result = await self.loop.run_in_executor(
-                        None, task.func, *task.args, **task.kwargs
-                    )
-                task.result = result
-            except Exception as e:
-                LOGGER.error(f"任务 {task_id} 执行出错: {str(e)}")
-                task.error = e
-            finally:
-                task.completed = True
-                LOGGER.info(f"完成任务 {task_id}")
+            # try:
+            if asyncio.iscoroutinefunction(task.func):
+                result = await task.func(*task.args, **task.kwargs)
+            else:
+                # 如果不是协程函数，在线程池中执行
+                result = await self.loop.run_in_executor(
+                    None, task.func, *task.args, **task.kwargs
+                )
+            task.result = result
+            task.completed = True
+            LOGGER.info(f"完成任务 {task_id}")
+            # except Exception as e:
+            #     LOGGER.error(f"任务 {task_id} 执行出错: {str(e)}")
+            #     task.error = e
+            # finally:
+            #     task.completed = True
+            #     LOGGER.info(f"完成任务 {task_id}")
     
     async def submit(self, func: Callable, *args, **kwargs) -> int:
         """

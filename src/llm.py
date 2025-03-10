@@ -39,9 +39,14 @@ def generate_system_prompt(domains: Optional[List[str]] = None) -> str:
 1. 你将收到包含上下文的字幕内容，格式为：
    {
      "上文": "前两句字幕内容",
-     "当前行": "需要翻译的当前字幕",
+     "当前批次": [
+       {"编号": 1, "文本": "第一条字幕内容"},
+       {"编号": 2, "文本": "第二条字幕内容"},
+       {"编号": 3, "文本": "第三条字幕内容"}
+     ],
      "下文": "后两句字幕内容"
    }
+   请以JSON格式返回结果：[{"编号": 1, "译文": "中文翻译1"}, {"编号": 2, "译文": "中文翻译2"}, ...]
 
 2. 翻译要求：
    - 准确传达原文含义
@@ -61,7 +66,6 @@ def generate_system_prompt(domains: Optional[List[str]] = None) -> str:
         base_prompt += domain_prompt
     
     output_format = """\n\n输出要求：
-- 只返回当前行的中文翻译
 - 不要包含任何解释或其他内容
 - 不要翻译上下文内容
 
@@ -79,7 +83,7 @@ class TranslationModel:
             _endpoint: API端点URL
             domains: 专业领域列表
         """
-        self.client = AsyncOpenAI(api_key=_api_key, base_url=_endpoint)
+        self.client = AsyncOpenAI(api_key=_api_key, base_url=_endpoint, timeout=300)
         
         # 从环境变量读取配置，添加错误处理
         try:
@@ -110,7 +114,7 @@ class TranslationModel:
         if domains:
             LOGGER.info(f"设置专业领域: {', '.join(domains)}")
     
-    # @retry_on_failure(max_retries=3, delay=1.0, backoff_factor=2.0)
+    @retry_on_failure(max_retries=5, delay=3.0, backoff_factor=2.0)
     async def chat_completion(self, messages: list, model: Optional[str] = None) -> tuple[Optional[str], Optional[str], Optional[Dict]]:
         """
         发送聊天请求到LLM
@@ -127,7 +131,7 @@ class TranslationModel:
             full_messages = [
                 {"role": "system", "content": self.system_prompt}
             ] + messages
-            
+            LOGGER.info(f"发送请求: {full_messages[1:]}")
             response = await self.client.chat.completions.create(
                 model=model or self.model,
                 messages=full_messages,
@@ -140,7 +144,7 @@ class TranslationModel:
                 reasoning_content = message.reasoning_content
                 
             result = message.content
-            
+            LOGGER.info(f"响应: {result}")
             # 获取tokens使用情况
             usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
